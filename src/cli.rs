@@ -10,6 +10,14 @@ pub enum HashAlgorithmChoice {
     Sha256,
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+pub enum OutputFormat {
+    Text,
+    Json,
+    Csv,
+    Tree,
+}
+
 impl From<HashAlgorithmChoice> for HashAlgorithm {
     fn from(choice: HashAlgorithmChoice) -> Self {
         match choice {
@@ -120,6 +128,28 @@ pub struct Cli {
         help = "Show only summary statistics, not detailed duplicate groups"
     )]
     pub summary_only: bool,
+
+    #[arg(
+        short = 'f',
+        long = "format",
+        help = "Output format",
+        value_enum,
+        default_value = "text"
+    )]
+    pub output_format: OutputFormat,
+
+    #[arg(
+        short = 'o',
+        long = "output",
+        help = "Output file path (stdout if not specified)"
+    )]
+    pub output_file: Option<PathBuf>,
+
+    #[arg(
+        long = "interactive",
+        help = "Interactive mode for duplicate resolution"
+    )]
+    pub interactive: bool,
 }
 
 impl Cli {

@@ -67,98 +67,61 @@ impl MultiAlgorithmHasher {
         let mut buffer = [0; 8192];
         let mut bytes_processed = 0u64;
 
-        let hash = match algorithm {
+        match algorithm {
             HashAlgorithm::Blake3 => {
                 let mut hasher = Blake3Hasher::new();
-                loop {
-                    let bytes_read = reader.read(&mut buffer)?;
-                    if bytes_read == 0 {
-                        break;
-                    }
-
-                    let bytes_to_process = if let Some(limit) = limit {
-                        if bytes_processed >= limit {
-                            break;
-                        }
-                        bytes_read.min((limit - bytes_processed) as usize)
-                    } else {
-                        bytes_read
-                    };
-
-                    hasher.update(&buffer[..bytes_to_process]);
-                    bytes_processed += bytes_to_process as u64;
-                }
-                hasher.finalize().to_hex().to_string()
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.update(data);
+                })?;
+                Ok(hasher.finalize().to_hex().to_string())
             }
             HashAlgorithm::Md5 => {
                 let mut hasher = md5::Context::new();
-                loop {
-                    let bytes_read = reader.read(&mut buffer)?;
-                    if bytes_read == 0 {
-                        break;
-                    }
-
-                    let bytes_to_process = if let Some(limit) = limit {
-                        if bytes_processed >= limit {
-                            break;
-                        }
-                        bytes_read.min((limit - bytes_processed) as usize)
-                    } else {
-                        bytes_read
-                    };
-
-                    hasher.consume(&buffer[..bytes_to_process]);
-                    bytes_processed += bytes_to_process as u64;
-                }
-                format!("{:x}", hasher.compute())
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.consume(data);
+                })?;
+                Ok(format!("{:x}", hasher.compute()))
             }
             HashAlgorithm::Sha1 => {
                 let mut hasher = Sha1::new();
-                loop {
-                    let bytes_read = reader.read(&mut buffer)?;
-                    if bytes_read == 0 {
-                        break;
-                    }
-
-                    let bytes_to_process = if let Some(limit) = limit {
-                        if bytes_processed >= limit {
-                            break;
-                        }
-                        bytes_read.min((limit - bytes_processed) as usize)
-                    } else {
-                        bytes_read
-                    };
-
-                    hasher.update(&buffer[..bytes_to_process]);
-                    bytes_processed += bytes_to_process as u64;
-                }
-                format!("{:x}", hasher.finalize())
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.update(data);
+                })?;
+                Ok(format!("{:x}", hasher.finalize()))
             }
             HashAlgorithm::Sha256 => {
                 let mut hasher = Sha256::new();
-                loop {
-                    let bytes_read = reader.read(&mut buffer)?;
-                    if bytes_read == 0 {
-                        break;
-                    }
-
-                    let bytes_to_process = if let Some(limit) = limit {
-                        if bytes_processed >= limit {
-                            break;
-                        }
-                        bytes_read.min((limit - bytes_processed) as usize)
-                    } else {
-                        bytes_read
-                    };
-
-                    hasher.update(&buffer[..bytes_to_process]);
-                    bytes_processed += bytes_to_process as u64;
-                }
-                format!("{:x}", hasher.finalize())
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.update(data);
+                })?;
+                Ok(format!("{:x}", hasher.finalize()))
             }
-        };
+        }
+    }
 
-        Ok(hash)
+    fn process_buffered_data<F>(&self, reader: &mut BufReader<File>, buffer: &mut [u8], limit: Option<u64>, bytes_processed: &mut u64, mut update_fn: F) -> Result<()>
+    where
+        F: FnMut(&[u8]),
+    {
+        loop {
+            let bytes_read = reader.read(buffer)?;
+            if bytes_read == 0 {
+                break;
+            }
+
+            let bytes_to_process = if let Some(limit) = limit {
+                if *bytes_processed >= limit {
+                    break;
+                }
+                bytes_read.min((limit - *bytes_processed) as usize)
+            } else {
+                bytes_read
+            };
+
+            update_fn(&buffer[..bytes_to_process]);
+            *bytes_processed += bytes_to_process as u64;
+        }
+        Ok(())
     }
 }
 

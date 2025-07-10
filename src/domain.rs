@@ -57,7 +57,7 @@ impl FileMetadata {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DuplicateSet {
     pub hash: String,
     pub files: Vec<FileMetadata>,
@@ -187,7 +187,7 @@ impl ScanConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ScanResult {
     pub duplicates: Vec<DuplicateSet>,
     pub total_files_scanned: usize,
