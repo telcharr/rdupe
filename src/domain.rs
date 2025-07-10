@@ -5,19 +5,30 @@ use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum HashAlgorithm {
+    // Fast non-cryptographic algorithms
+    XxHash64,
+    XxHash3,
+    WyHash,
+    TwoXHash64,
+    // Cryptographic algorithms
     Blake3,
+    Sha256,
+    // Legacy algorithms
     Md5,
     Sha1,
-    Sha256,
 }
 
 impl HashAlgorithm {
     pub fn as_str(&self) -> &'static str {
         match self {
+            HashAlgorithm::XxHash64 => "xxhash64",
+            HashAlgorithm::XxHash3 => "xxhash3",
+            HashAlgorithm::WyHash => "wyhash",
+            HashAlgorithm::TwoXHash64 => "twox64",
             HashAlgorithm::Blake3 => "blake3",
+            HashAlgorithm::Sha256 => "sha256",
             HashAlgorithm::Md5 => "md5",
             HashAlgorithm::Sha1 => "sha1",
-            HashAlgorithm::Sha256 => "sha256",
         }
     }
 }
@@ -122,7 +133,7 @@ impl Default for ScanConfig {
             partial_hash_size: 8192,
             use_mmap_threshold: 64 * 1024 * 1024,
             thread_count: None,
-            hash_algorithm: HashAlgorithm::Blake3,
+            hash_algorithm: HashAlgorithm::XxHash64,
             cross_filesystem: true,
             cache_file: None,
             incremental: false,

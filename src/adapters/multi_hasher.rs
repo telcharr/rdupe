@@ -7,8 +7,13 @@ use memmap2::MmapOptions;
 use sha1::Sha1;
 use sha2::{Digest, Sha256};
 use std::fs::File;
+use std::hash::Hasher;
 use std::io::{BufReader, Read};
 use std::path::Path;
+use twox_hash::XxHash64 as TwoXHash64Hasher;
+use wyhash::wyhash;
+use xxhash_rust::xxh3::Xxh3;
+use xxhash_rust::xxh64::Xxh64;
 
 pub struct MultiAlgorithmHasher {
     mmap_threshold: u64,
@@ -36,10 +41,34 @@ impl MultiAlgorithmHasher {
         };
         
         let hash = match algorithm {
+            HashAlgorithm::XxHash64 => {
+                let mut hasher = Xxh64::new(0);
+                hasher.update(data);
+                format!("{:x}", hasher.finish())
+            }
+            HashAlgorithm::XxHash3 => {
+                let mut hasher = Xxh3::new();
+                hasher.update(data);
+                format!("{:x}", hasher.finish())
+            }
+            HashAlgorithm::WyHash => {
+                let hash = wyhash(data, 0);
+                format!("{:x}", hash)
+            }
+            HashAlgorithm::TwoXHash64 => {
+                let mut hasher = TwoXHash64Hasher::default();
+                hasher.write(data);
+                format!("{:x}", hasher.finish())
+            }
             HashAlgorithm::Blake3 => {
                 let mut hasher = Blake3Hasher::new();
                 hasher.update(data);
                 hasher.finalize().to_hex().to_string()
+            }
+            HashAlgorithm::Sha256 => {
+                let mut hasher = Sha256::new();
+                hasher.update(data);
+                format!("{:x}", hasher.finalize())
             }
             HashAlgorithm::Md5 => {
                 let mut hasher = md5::Context::new();
@@ -48,11 +77,6 @@ impl MultiAlgorithmHasher {
             }
             HashAlgorithm::Sha1 => {
                 let mut hasher = Sha1::new();
-                hasher.update(data);
-                format!("{:x}", hasher.finalize())
-            }
-            HashAlgorithm::Sha256 => {
-                let mut hasher = Sha256::new();
                 hasher.update(data);
                 format!("{:x}", hasher.finalize())
             }
@@ -68,12 +92,48 @@ impl MultiAlgorithmHasher {
         let mut bytes_processed = 0u64;
 
         match algorithm {
+            HashAlgorithm::XxHash64 => {
+                let mut hasher = Xxh64::new(0);
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.update(data);
+                })?;
+                Ok(format!("{:x}", hasher.finish()))
+            }
+            HashAlgorithm::XxHash3 => {
+                let mut hasher = Xxh3::new();
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.update(data);
+                })?;
+                Ok(format!("{:x}", hasher.finish()))
+            }
+            HashAlgorithm::WyHash => {
+                let mut data_vec = Vec::new();
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    data_vec.extend_from_slice(data);
+                })?;
+                let hash = wyhash(&data_vec, 0);
+                Ok(format!("{:x}", hash))
+            }
+            HashAlgorithm::TwoXHash64 => {
+                let mut hasher = TwoXHash64Hasher::default();
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.write(data);
+                })?;
+                Ok(format!("{:x}", hasher.finish()))
+            }
             HashAlgorithm::Blake3 => {
                 let mut hasher = Blake3Hasher::new();
                 self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
                     hasher.update(data);
                 })?;
                 Ok(hasher.finalize().to_hex().to_string())
+            }
+            HashAlgorithm::Sha256 => {
+                let mut hasher = Sha256::new();
+                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
+                    hasher.update(data);
+                })?;
+                Ok(format!("{:x}", hasher.finalize()))
             }
             HashAlgorithm::Md5 => {
                 let mut hasher = md5::Context::new();
@@ -84,13 +144,6 @@ impl MultiAlgorithmHasher {
             }
             HashAlgorithm::Sha1 => {
                 let mut hasher = Sha1::new();
-                self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
-                    hasher.update(data);
-                })?;
-                Ok(format!("{:x}", hasher.finalize()))
-            }
-            HashAlgorithm::Sha256 => {
-                let mut hasher = Sha256::new();
                 self.process_buffered_data(&mut reader, &mut buffer, limit, &mut bytes_processed, |data| {
                     hasher.update(data);
                 })?;

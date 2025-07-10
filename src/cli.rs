@@ -4,10 +4,22 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum HashAlgorithmChoice {
+    #[value(help = "Fast non-cryptographic hash")]
+    Xxhash64,
+    #[value(help = "xxHash variant, fast non-cryptographic hash")]
+    Xxhash3,
+    #[value(help = "Fast non-cryptographic hash")]
+    Wyhash,
+    #[value(help = "Fast non-cryptographic hash")]
+    Twox64,
+    #[value(help = "Cryptographic hash")]
     Blake3,
-    Md5,
-    Sha1,
+    #[value(help = "Cryptographic hash")]
     Sha256,
+    #[value(help = "Slow legacy hash")]
+    Md5,
+    #[value(help = "Slow legacy hash")]
+    Sha1,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -21,10 +33,14 @@ pub enum OutputFormat {
 impl From<HashAlgorithmChoice> for HashAlgorithm {
     fn from(choice: HashAlgorithmChoice) -> Self {
         match choice {
+            HashAlgorithmChoice::Xxhash64 => HashAlgorithm::XxHash64,
+            HashAlgorithmChoice::Xxhash3 => HashAlgorithm::XxHash3,
+            HashAlgorithmChoice::Wyhash => HashAlgorithm::WyHash,
+            HashAlgorithmChoice::Twox64 => HashAlgorithm::TwoXHash64,
             HashAlgorithmChoice::Blake3 => HashAlgorithm::Blake3,
+            HashAlgorithmChoice::Sha256 => HashAlgorithm::Sha256,
             HashAlgorithmChoice::Md5 => HashAlgorithm::Md5,
             HashAlgorithmChoice::Sha1 => HashAlgorithm::Sha1,
-            HashAlgorithmChoice::Sha256 => HashAlgorithm::Sha256,
         }
     }
 }
@@ -100,7 +116,7 @@ pub struct Cli {
         long = "algorithm",
         help = "Hash algorithm to use",
         value_enum,
-        default_value = "blake3"
+        default_value = "xxhash64"
     )]
     pub hash_algorithm: HashAlgorithmChoice,
 

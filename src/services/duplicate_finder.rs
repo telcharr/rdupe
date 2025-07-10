@@ -149,7 +149,8 @@ where
                 
                 for file in group {
                     let hash_result = if is_partial {
-                        hasher.hash_partial(&file.path, config.partial_hash_size, config.hash_algorithm)
+                        let adaptive_size = Self::calculate_adaptive_partial_hash_size(file.size, config.partial_hash_size);
+                        hasher.hash_partial(&file.path, adaptive_size, config.hash_algorithm)
                     } else {
                         hasher.hash_file(&file.path, config.hash_algorithm)
                     };
@@ -196,5 +197,20 @@ where
         }
 
         Ok(results)
+    }
+
+    fn calculate_adaptive_partial_hash_size(file_size: u64, base_size: u64) -> u64 {
+        match file_size {
+            // For very small files (< 4KB), use the entire file
+            0..=4096 => file_size,
+            // For small files (4KB - 64KB), use 1KB 
+            4097..=65536 => 1024.min(file_size),
+            // For medium files (64KB - 1MB), use the configured base size
+            65537..=1048576 => base_size.min(file_size),
+            // For large files (1MB - 100MB), use 16KB
+            1048577..=104857600 => (base_size * 2).min(file_size),
+            // For very large files (> 100MB), use 64KB for better discrimination
+            _ => (base_size * 8).min(file_size),
+        }
     }
 }
